@@ -560,7 +560,16 @@ def get_spepc(hps, filename, dtype, device, is_v2pro=False):
     # audio = torch.FloatTensor(audio)
 
     sr1 = int(hps.data.sampling_rate)
-    audio, sr0 = torchaudio.load(filename)
+    try:
+        audio, sr0 = torchaudio.load(filename)
+    except Exception:
+        import soundfile as sf
+        wav_array, sr0 = sf.read(filename)
+        audio = torch.from_numpy(wav_array).float()
+        if audio.ndim == 1:
+            audio = audio.unsqueeze(0)
+        else:
+            audio = audio.T
     if sr0 != sr1:
         audio = audio.to(device)
         if audio.shape[0] == 2:
@@ -996,7 +1005,16 @@ def get_tts_wav(
             phoneme_ids0 = torch.LongTensor(phones1).to(device).unsqueeze(0)
             phoneme_ids1 = torch.LongTensor(phones2).to(device).unsqueeze(0)
             fea_ref, ge = vq_model.decode_encp(prompt.unsqueeze(0), phoneme_ids0, refer)
-            ref_audio, sr = torchaudio.load(ref_wav_path)
+            try:
+                ref_audio, sr = torchaudio.load(ref_wav_path)
+            except Exception:
+                import soundfile as sf
+                wav_array, sr = sf.read(ref_wav_path)
+                ref_audio = torch.from_numpy(wav_array).float()
+                if ref_audio.ndim == 1:
+                    ref_audio = ref_audio.unsqueeze(0)
+                else:
+                    ref_audio = ref_audio.T
             ref_audio = ref_audio.to(device).float()
             if ref_audio.shape[0] == 2:
                 ref_audio = ref_audio.mean(0).unsqueeze(0)
