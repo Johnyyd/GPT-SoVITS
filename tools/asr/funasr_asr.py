@@ -22,7 +22,7 @@ def only_asr(input_file, language, backend="fun-asr-nano"):
 
 
 def create_model(language="zh", **kwargs):
-    backend = kwargs.get("backend", "fun-asr-nano")
+    backend = kwargs.get("backend", "sensevoice")
 
     # For non-classic backends, route to multilingual models regardless of language
     if backend in ("fun-asr-nano", "sensevoice") and language != "yue":
@@ -101,7 +101,7 @@ def create_model(language="zh", **kwargs):
         return model
 
 
-def execute_asr(input_folder, output_folder, model_size, language, backend="fun-asr-nano"):
+def execute_asr(input_folder, output_folder, model_size, language, backend="sensevoice"):
     input_file_names = os.listdir(input_folder)
     input_file_names.sort()
 
@@ -115,7 +115,16 @@ def execute_asr(input_folder, output_folder, model_size, language, backend="fun-
             print("\n" + file_name)
             file_path = os.path.join(input_folder, file_name)
             text = model.generate(input=file_path)[0]["text"]
-            output.append(f"{file_path}|{output_file_name}|{language.upper()}|{text}")
+            lang_code = language.upper()
+            if "<|" in text and "|>" in text:
+                import re
+                tags = re.findall(r"<\|(.*?)\|>", text)
+                for tag in tags:
+                    if tag.lower() in ["zh", "en", "ja", "ko", "yue"]:
+                        if language.lower() == "auto":
+                            lang_code = tag.upper()
+                text = re.sub(r"<\|.*?\|>", "", text).strip()
+            output.append(f"{file_path}|{output_file_name}|{lang_code}|{text}")
         except Exception:
             print(traceback.format_exc())
 
@@ -142,10 +151,14 @@ if __name__ == "__main__":
     parser.add_argument(
         "-p", "--precision", type=str, default="float16", choices=["float16", "float32"], help="fp16 or fp32"
     )  # 还没接入
+    parser.add_argument(
+        "-b", "--backend", type=str, default="sensevoice", help="Backend model for ASR"
+    )
     cmd = parser.parse_args()
     execute_asr(
         input_folder=cmd.input_folder,
         output_folder=cmd.output_folder,
         model_size=cmd.model_size,
         language=cmd.language,
+        backend=cmd.backend,
     )
